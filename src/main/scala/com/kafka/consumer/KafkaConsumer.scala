@@ -29,7 +29,12 @@ class KafkaConsumer(groupId: String, servers: String, topics: List[String]) {
   def read(): List[String] =
     try {
       val records: ConsumerRecords[String, String] = consumer.poll(timeout)
-      records.map(record => record.value()).toList
+      records.map{
+        record => record.value()
+        val data=record.value()
+          println("receiving data in consumer>>>>>>>>>>>>>>>>"+data)
+          data
+      }.toList
     } catch {
       case wue: WakeupException =>
         wue.printStackTrace()
