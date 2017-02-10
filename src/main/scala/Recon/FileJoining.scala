@@ -18,7 +18,7 @@ import scala.io.Source
   */
 
 
-object FileJoining {
+object FileJoining extends {
 
   def main(args:Array[String]): Unit ={
 
@@ -46,34 +46,6 @@ object FileJoining {
   }
 
 
-  def transposingFile(parsedJsonLookupFile:Map[String,String], sc:SparkContext,sqlContext:SQLContext): Unit ={
-
-    val rawdatadf=sqlContext.read.format("com.databricks.spark.csv").option("header", "true").option("inferSchema", "true").load(parsedJsonLookupFile.get("datafile").get)
-    val envdata=sc.textFile(parsedJsonLookupFile.get("transposefile").get)
-    val mappedColumns =parsedJsonLookupFile.get("transposecolumns").get.split(",").toList
-
-     val valuesList: List[String] = envdata.map(line => line.split("=")).filter(x => mappedColumns.exists(y => y.equalsIgnoreCase(x(0))) )
-      .map(x => (x(0),x(1))).values.collect().toList
-
-    val broadcastList=sc.broadcast(valuesList)
-
-    val rawdataRDD: RDD[Row] =rawdatadf.rdd
-    val rddRowAndValue: RDD[(Row, List[String])] =rawdataRDD.map(x => (x,broadcastList.value))
-
-    val finalRDD: RDD[transposeFileCaseClass] =rddRowAndValue.map{
-      case (key, value) =>
-        transposeFileCaseClass(key.get(0).asInstanceOf[Int],key.get(1).toString, key.get(2).asInstanceOf[Int], key.get(3).toString, key.get(4).toString,
-          value(0),value(1)
-        )
-    }
-    val transposedFinalDF=sqlContext.createDataFrame(finalRDD)
-    transposedFinalDF.show()
-  }
-
-  case class transposeFileCaseClass(assetid:Int, currency:String, amount:Int, tradeType:String,name:String,date:String,envTradetype:String)
-
-
-
   def joiningMultipleFiles(parsedJoiningdata: Map[String,String], sc:SparkContext,sqlContext:SQLContext): Unit ={
 
     val alphabet: Array[Char] = "abcdefghijklmnopqrstuvwxyz".toCharArray()
@@ -87,7 +59,6 @@ object FileJoining {
       case (location, aliasName) =>
         sqlContext.read.format("com.databricks.spark.csv").option("header", "true").option("inferSchema", "true").load(location).alias(aliasName.toString)
     }
-
     val joinedDF=joinAll(listDataFrame)
     joinedDF.where(joinColumn).show()
 
@@ -122,7 +93,7 @@ def joinAll(list:List[DataFrame]):DataFrame={
 
   def transposingFileDynamic(parsedJsonLookupFile:Map[String,String], sc:SparkContext,sqlContext:SQLContext): Unit ={
 
-    val rawdatadf: DataFrame =sqlContext.read.format("com.databricks.spark.csv").option("header", "true").option("inferSchema", "true").load(parsedJsonLookupFile.get("datafile").get)
+    val rawdatadf: DataFrame =sqlContext.read.format("com.databricks.spark.csv").option("header", "true").load(parsedJsonLookupFile.get("datafile").get)
     val envdata=sc.textFile(parsedJsonLookupFile.get("transposefile").get)
     val transposeColumnList=parsedJsonLookupFile.get("transposecolumns").get.split(",").map{
       line =>
@@ -168,9 +139,9 @@ def joinAll(list:List[DataFrame]):DataFrame={
 
   def createSchemaStruct(columnDetail:ColumnDetail)={
 
-    columnDetail.ctype match {
-      case "int" => StructField(columnDetail.name,IntegerType,nullable = true)
-      case "double" => StructField(columnDetail.name,DoubleType,nullable = true)
+    columnDetail.ctype.toUpperCase match {
+      case TypeConstants.int => StructField(columnDetail.name,IntegerType,nullable = true)
+      case TypeConstants.amount => StructField(columnDetail.name,DecimalType.SYSTEM_DEFAULT,nullable = true)
       case _ => StructField(columnDetail.name,StringType,nullable = true)
     }
 
@@ -180,9 +151,9 @@ def joinAll(list:List[DataFrame]):DataFrame={
 
     val mappedRowList: List[Any] =schemaList.map{
       x =>
-        x.ctype match{
-          case "int" =>  row.getAs[Int](x.name)
-          case "double" =>  (row.getAs[Int](x.name)).asInstanceOf[Double]
+        x.ctype.toUpperCase match{
+          case TypeConstants.int =>  row.getAs[String](x.name).toInt
+          case TypeConstants.amount =>  BigDecimal.exact(row.getAs[String](x.name))
           case _  => row.getAs[String](x.name)
          }
     }
@@ -199,6 +170,39 @@ def joinAll(list:List[DataFrame]):DataFrame={
 
   case class ColumnDetail(name:String, ctype:String)
 
+
+
+
+//Not usable method
+  def transposingFile(parsedJsonLookupFile:Map[String,String], sc:SparkContext,sqlContext:SQLContext): Unit ={
+
+    val rawdatadf=sqlContext.read.format("com.databricks.spark.csv").option("header", "true").option("inferSchema", "true").load(parsedJsonLookupFile.get("datafile").get)
+    val envdata=sc.textFile(parsedJsonLookupFile.get("transposefile").get)
+    val mappedColumns =parsedJsonLookupFile.get("transposecolumns").get.split(",").toList
+    val valuesList: List[String] = envdata.map(line => line.split("=")).filter(x => mappedColumns.exists(y => y.equalsIgnoreCase(x(0))) )
+      .map(x => (x(0),x(1))).values.collect().toList
+
+    val broadcastList=sc.broadcast(valuesList)
+    val rawdataRDD: RDD[Row] =rawdatadf.rdd
+    val rddRowAndValue: RDD[(Row, List[String])] =rawdataRDD.map(x => (x,broadcastList.value))
+    val finalRDD: RDD[transposeFileCaseClass] =rddRowAndValue.map{
+      case (key, value) =>
+        transposeFileCaseClass(key.get(0).asInstanceOf[Int],key.get(1).toString, key.get(2).asInstanceOf[Int], key.get(3).toString, key.get(4).toString,
+          value(0),value(1)
+        )
+    }
+    val transposedFinalDF=sqlContext.createDataFrame(finalRDD)
+    transposedFinalDF.show()
+  }
+  case class transposeFileCaseClass(assetid:Int, currency:String, amount:Int, tradeType:String,name:String,date:String,envTradetype:String)
+
+}
+
+object TypeConstants{
+  final val amount="AMOUNT"
+  final val int="INT"
+  final val double="DOUBLE"
+  final val long="LONG"
 
 }
 
