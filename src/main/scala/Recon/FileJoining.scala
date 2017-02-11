@@ -34,7 +34,7 @@ object FileJoining extends {
     transposingFileDynamic(parsedTransposingData, sc:SparkContext,sqlContext:SQLContext)
 
     val parsedJoiningdata=(parsedJson \ "joinFile").extract[Map[String,String]]
-    //joiningMultipleFiles(parsedJoiningdata,sc:SparkContext,sqlContext:SQLContext)
+    joiningMultipleFilesEquiJoin(parsedJoiningdata,sc:SparkContext,sqlContext:SQLContext)
 
     val parsedGroupingdata=(parsedJson \ "grouping").extract[Map[String,String]]
     //gropingfile(parsedGroupingdata,sc,sqlContext)
@@ -46,7 +46,7 @@ object FileJoining extends {
   }
 
 
-  def joiningMultipleFiles(parsedJoiningdata: Map[String,String], sc:SparkContext,sqlContext:SQLContext): Unit ={
+  def joiningMultipleFilesEquiJoin(parsedJoiningdata: Map[String,String], sc:SparkContext,sqlContext:SQLContext): Unit ={
 
     val alphabet: Array[Char] = "abcdefghijklmnopqrstuvwxyz".toCharArray()
     val joinColumn=parsedJoiningdata.get("joincolumn").get.toString
@@ -66,7 +66,7 @@ object FileJoining extends {
 def joinAll(list:List[DataFrame]):DataFrame={
   def join(list:List[DataFrame],df:DataFrame ):DataFrame={
     list match {
-      case head::tail => join(tail, df.join(head))
+      case head::tail =>   join(tail, df.join(head))
       case Nil => df
     }
   }
@@ -105,6 +105,9 @@ def joinAll(list:List[DataFrame]):DataFrame={
         line.split(":")
     }.map(x => ColumnDetail(x(0),x(1)))        .toList
 
+    val schemaList: List[ColumnDetail] =Utill.inferringSchemaFromFile(rawdatadf.schema)
+
+/*
     val schemaList: List[ColumnDetail] =parsedJsonLookupFile.get("schema").get.split(",").map{
       line =>
         line.split(":")
@@ -112,6 +115,7 @@ def joinAll(list:List[DataFrame]):DataFrame={
       x =>
         ColumnDetail(x(0),x(1))
     }.toList
+*/
 
 
     val valuesMap: Map[String, String] = envdata.map(line => line.split("=")).filter(x => transposeColumnList.exists(y => y.equalsIgnoreCase(x(0))) )
@@ -168,9 +172,6 @@ def joinAll(list:List[DataFrame]):DataFrame={
     finalMappedList
   }
 
-  case class ColumnDetail(name:String, ctype:String)
-
-
 
 
 //Not usable method
@@ -198,13 +199,7 @@ def joinAll(list:List[DataFrame]):DataFrame={
 
 }
 
-object TypeConstants{
-  final val amount="AMOUNT"
-  final val int="INT"
-  final val double="DOUBLE"
-  final val long="LONG"
 
-}
 
 
 
