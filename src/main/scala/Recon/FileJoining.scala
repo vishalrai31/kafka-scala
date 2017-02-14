@@ -34,7 +34,7 @@ object FileJoining extends {
     transposingFileDynamic(parsedTransposingData, sc:SparkContext,sqlContext:SQLContext)
 
     val parsedJoiningdata=(parsedJson \ "joinFile").extract[Map[String,String]]
-    joiningMultipleFilesEquiJoin(parsedJoiningdata,sc:SparkContext,sqlContext:SQLContext)
+    //joiningMultipleFilesEquiJoin(parsedJoiningdata,sc:SparkContext,sqlContext:SQLContext)
 
     val parsedGroupingdata=(parsedJson \ "grouping").extract[Map[String,String]]
     //gropingfile(parsedGroupingdata,sc,sqlContext)
@@ -95,6 +95,7 @@ def joinAll(list:List[DataFrame]):DataFrame={
 
     val rawdatadf: DataFrame =sqlContext.read.format("com.databricks.spark.csv").option("header", "true").load(parsedJsonLookupFile.get("datafile").get)
     val envdata=sc.textFile(parsedJsonLookupFile.get("transposefile").get)
+    val outputpath: Option[String] =parsedJsonLookupFile.get("outputpath")
     val transposeColumnList=parsedJsonLookupFile.get("transposecolumns").get.split(",").map{
       line =>
         line.split(":")
@@ -130,7 +131,6 @@ def joinAll(list:List[DataFrame]):DataFrame={
     )
 
     val computedRowRdd: RDD[Row] =    finalComputedRDD.map(x => Row.fromSeq(x))
-    computedRowRdd.foreach(println)
 
     val combineSchemaList: List[ColumnDetail] =schemaList:::transposeColumnMap
     val schema: StructType =StructType(combineSchemaList.map{
@@ -138,7 +138,14 @@ def joinAll(list:List[DataFrame]):DataFrame={
         createSchemaStruct(value)
     }.toArray)
 
-    sqlContext.createDataFrame(computedRowRdd,schema).show()
+    val df: DataFrame =sqlContext.createDataFrame(computedRowRdd,schema)
+
+    outputpath match {
+      case Some(filePath) => df.write.format("com.databricks.spark.csv").option("header", "true").save(filePath)
+      case None => println("only dataframe created")
+    }
+
+
   }
 
   def createSchemaStruct(columnDetail:ColumnDetail)={
