@@ -1,0 +1,20 @@
+
+{
+"LeftSideSchemaDetail":{
+	"datasource":"hdfs",
+	"schemaDetail":"columnname1:type,columnname2:type",
+	"location":"c:/asd/as",
+	"hiveQuery":"select * from table"
+}
+"RightSideSchemaDetail":{
+	"datasource":"hdfs",
+	"schemaDetail":"columnname1:type,columnname2:type",
+	"location":"c:/asd/as",
+	"hiveQuery":"select * from table"
+}
+"ReconRules":{
+	"matchingKey":"firstkey,secondkey",
+	"reconKey":"firstKey,secondkey"
+	"tolrance":"MeasureValue:0"
+}
+}
