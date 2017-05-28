@@ -30,8 +30,16 @@ object FileJoining extends {
     implicit val formats = DefaultFormats
     val parsedJson: JValue =parse(jsondata)
 
+    val asd="".toString
+    println("asd::"+asd)
+    /*val aschema= StructType(Array(StructField("name",IntegerType,nullable = true)))
+val asdf=  sqlContext.read.format("com.databricks.spark.csv").schema(aschema).load("D:\\Scala\\sampleFiles\\files.csv")
+    asdf.first()
+    asdf.rdd.isEmpty()*/
+
+
     val parsedTransposingData =(parsedJson \ "transposeFile").extract[Map[String,String]]
-    transposingFileDynamic(parsedTransposingData, sc:SparkContext,sqlContext:SQLContext)
+    //transposingFileDynamic(parsedTransposingData, sc:SparkContext,sqlContext:SQLContext)
 
     val parsedJoiningdata=(parsedJson \ "joinFile").extract[Map[String,String]]
     //joiningMultipleFilesEquiJoin(parsedJoiningdata,sc:SparkContext,sqlContext:SQLContext)
