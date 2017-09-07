@@ -23,7 +23,7 @@ object SmartMeterSparkConsumer {
     val ssc = new StreamingContext(sparkConf, Seconds(10))
     val sc=ssc.sparkContext
     ssc.checkpoint("checkpoint")
-    val custAvgValue=sc.textFile("D:\\EDM_Sample_Project\\sample\\Sampleavgdata.csv")
+    val custAvgValue: RDD[String] =sc.textFile("D:\\EDM_Sample_Project\\sample\\Sampleavgdata.csv")
 
     //val topicMap:Map[String, Int] = Map("meterreader" ->1)
     val topicSet:Set[String]=Set("meterreader")
